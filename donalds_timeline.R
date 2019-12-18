@@ -2,6 +2,7 @@ library(tidyverse)
 library(lubridate)
 library(twitteR)
 library(rtweet)
+library(gmailr)
 library(glue)
 
 # set up tokens
@@ -49,7 +50,7 @@ get_latest_tweet <- function(user_id) {
   
   recent_tweet <-
     get_timeline(user_id, n = 1) %>%
-    select(status_id, screen_name)
+    select(created_at, status_id, screen_name)
   
   tweet_time <- 
     recent_tweet %>%
@@ -71,6 +72,22 @@ get_latest_tweet <- function(user_id) {
 retweet_with_comment <- function(username, tweet_id, comment) {
   url <- glue("https://twitter.com/{username}/status/{tweet_id}")
   updateStatus(glue("{comment} {url}"), bypassCharLimit = TRUE)
+}
+
+
+
+#' send myself a notification email when `main()` fails
+send_failure_email <- function() {
+  
+  email <-
+    gm_mime() %>%
+    gm_to("emmacooperpeterson@gmail.com") %>%
+    gm_from("trumptimeline1@gmail.com") %>%
+    gm_subject("trumptimeline failed :(") %>%
+    gm_text_body("nooooooo")
+  
+  gm_send_message(email)
+
 }
 
 
@@ -104,9 +121,7 @@ main <- function() {
     } else if (attempts > 10) break # give up if we try more than 10 times
   }
   
-  if (retweeted) print("done !")
-  else print("failed :(")
-
+  if (!retweeted) send_failure_email()
 }
 
 
@@ -115,18 +130,6 @@ main <- function() {
 
 
 
-
-# run everything !
+# run it ! ----------------------------------------------------------------
 main()
-
-
-
-
-
-
-
-
-
-
-
 
