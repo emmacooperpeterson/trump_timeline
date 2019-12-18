@@ -1,7 +1,12 @@
 library(tidyverse)
 library(lubridate)
+library(twitteR)
 library(rtweet)
 library(glue)
+
+# set up tokens
+source("tokens.R")
+setup_twitter_oauth(api_key, api_secret_key, access_token, access_secret_token)
 
 
 
@@ -9,12 +14,12 @@ library(glue)
 #'
 #' @return dataframe
 get_following <- function() {
-  # get a dataframe of users followed by Donald Trump
   following <- 
     get_friends("realDonaldTrump", n = 100) %>%
      mutate(index = row_number())
   return(following)
 }
+
 
 
 #' Randomly choose a user who is followed by Trump
@@ -29,6 +34,7 @@ choose_user <- function(following) {
 }
 
 
+
 #' Get the most recent tweet from a given user.
 #' If the most recent tweet is not from today, return NULL.
 #' Since the bot will retweet once daily, this will prevent
@@ -36,33 +42,91 @@ choose_user <- function(following) {
 #' 
 #' @param user_id character, returned by `choose_user()`
 #' 
-#' @return status_id -- NULL if no tweet from today
+#' @return tweet, dataframe (NULL if no tweet from today)
 get_latest_tweet <- function(user_id) {
   
-  tweet_id <- NULL
+  tweet <- NULL
   
-  tweet <-
+  recent_tweet <-
     get_timeline(user_id, n = 1) %>%
-    select(created_at, text, status_id)
+    select(status_id, screen_name)
   
   tweet_time <- 
-    tweet %>%
+    recent_tweet %>%
     pull(created_at)
   
-  print(tweet)
-  
-  if (tweet_time >= today()) tweet_id <- tweet %>% pull(status_id)
+  if (tweet_time >= today()) tweet <- recent_tweet
 
-  return(tweet_id)
+  return(tweet)
+}
+
+
+
+#' Retweet a tweet with a comment ("quote retweet")
+#' H/T https://rayheberer.ai/archive/tweetprocessing/
+#' 
+#' @param username character, from `get_latest_tweet()`
+#' @param tweet_id character, from `get_latest_tweet()`
+#' @param comment character
+retweet_with_comment <- function(username, tweet_id, comment) {
+  url <- glue("https://twitter.com/{username}/status/{tweet_id}")
+  updateStatus(glue("{comment} {url}"), bypassCharLimit = TRUE)
+}
+
+
+
+#' Main function to run the whole process
+#' from pulling Trump's current following list
+#' to retweeting a recent tweet from an account on that list 
+#'
+#' @return 
+main <- function() {
+  
+  # pull a list of accounts currently followed by trump
+  following <- get_following()
+  
+  retweeted <- FALSE
+  attempts <- 0
+  
+  # until we retweet a tweet from today, keep trying
+  while (!retweeted) {
+    attempts <- attempts + 1
+    user_id <- choose_user(following)
+    tweet <- get_latest_tweet(user_id)
+    
+    # if we found a tweet from today, retweet it
+    if (!is.null(tweet)) {
+      tweet_username <- tweet %>% pull(screen_name)
+      tweet_id <- tweet %>% pull(status_id)
+      retweet_with_comment(tweet_username, tweet_id, "This tweet was on Trump's timeline today.")
+      retweeted <- TRUE
+      
+    } else if (attempts > 10) break # give up if we try more than 10 times
+  }
+  
+  if (retweeted) print("done !")
+  else print("failed :(")
+
 }
 
 
 
 
-following <- get_following()
-user_id <- choose_user(following)
-username <- get_username(user_id)
-tweet_id <- get_latest_tweet(user_id)
 
-#post_tweet(retweet_id = tweet_id)
+
+
+
+# run everything !
+main()
+
+
+
+
+
+
+
+
+
+
+
 
