@@ -9,6 +9,9 @@ library(glue)
 source("tokens.R")
 setup_twitter_oauth(api_key, api_secret_key, access_token, access_secret_token)
 
+# set up gmailr credentials
+gm_auth_configure(path = "trump_timeline_gmailr_creds.json")
+
 
 
 #' Get a dataframe of users followed by Donald Trump
@@ -105,7 +108,7 @@ main <- function() {
   retweeted <- FALSE
   attempts <- 0
   
-  # until we retweet a tweet from today, keep trying
+  # until we find a tweet from today, keep trying
   while (!retweeted) {
     attempts <- attempts + 1
     user_id <- choose_user(following)
